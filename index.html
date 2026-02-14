@@ -1,1 +1,1358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Land Justice AI · Judge Winning Edition</title>
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.128.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.128.0/examples/jsm/"
+            }
+        }
+    </script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+        }
 
+        :root {
+            --gov-bg: #0a0f1e;
+            --gov-card: #141b2b;
+            --gov-accent: #2a6df4;
+            --gov-glow: #4d8cff;
+            --citizen-bg: #f5f9ff;
+            --citizen-card: #ffffff;
+            --citizen-accent: #0284c7;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --info: #3b82f6;
+            --dark: #0f172a;
+            --light: #f8fafc;
+        }
+
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: 'Inter', sans-serif;
+            background: var(--gov-bg);
+            color: white;
+            transition: background 0.5s ease;
+        }
+
+        body.citizen-mode {
+            background: var(--citizen-bg);
+            color: var(--dark);
+        }
+
+        #app {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            display: grid;
+            grid-template-rows: auto 1fr auto;
+            grid-template-columns: 300px 1fr 340px;
+            grid-template-areas: 
+                "header header header"
+                "sidebar main rightpanel"
+                "footer footer footer";
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        /* Header */
+        .header {
+            grid-area: header;
+            background: rgba(0, 0, 0, 0.4);
+            backdrop-filter: blur(12px);
+            border-bottom: 2px solid var(--gov-accent);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 24px;
+            z-index: 100;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 1.5rem;
+            font-weight: 700;
+        }
+
+        .logo-icon {
+            font-size: 2rem;
+            filter: drop-shadow(0 0 10px var(--gov-glow));
+            animation: pulse 2s infinite;
+        }
+
+        .mode-toggle {
+            display: flex;
+            gap: 8px;
+            background: rgba(0, 0, 0, 0.3);
+            padding: 4px;
+            border-radius: 60px;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .mode-btn {
+            padding: 10px 28px;
+            border-radius: 40px;
+            border: none;
+            font-weight: 600;
+            cursor: pointer;
+            background: transparent;
+            color: #94a3b8;
+            transition: all 0.3s;
+        }
+
+        .mode-btn.active {
+            background: var(--gov-accent);
+            color: white;
+            box-shadow: 0 0 20px var(--gov-glow);
+        }
+
+        .demo-btn {
+            background: linear-gradient(135deg, #f59e0b, #dc2626);
+            color: white;
+            border: none;
+            padding: 10px 24px;
+            border-radius: 40px;
+            font-weight: 600;
+            cursor: pointer;
+            animation: pulse 2s infinite;
+            letter-spacing: 0.5px;
+        }
+
+        .privacy-badge {
+            background: rgba(16, 185, 129, 0.2);
+            border: 1px solid var(--success);
+            color: var(--success);
+            padding: 6px 16px;
+            border-radius: 30px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            grid-area: sidebar;
+            background: rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(12px);
+            border-right: 1px solid rgba(42, 109, 244, 0.3);
+            padding: 20px 16px;
+            overflow-y: auto;
+            scrollbar-width: thin;
+            scrollbar-color: var(--gov-accent) transparent;
+        }
+
+        .sidebar::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .sidebar::-webkit-scrollbar-thumb {
+            background: var(--gov-accent);
+            border-radius: 10px;
+        }
+
+        .citizen-mode .sidebar {
+            background: rgba(255, 255, 255, 0.9);
+        }
+
+        /* Main View */
+        .main-view {
+            grid-area: main;
+            position: relative;
+            overflow: hidden;
+        }
+
+        #canvas-container {
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Right Panel */
+        .right-panel {
+            grid-area: rightpanel;
+            background: rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(12px);
+            border-left: 1px solid rgba(42, 109, 244, 0.3);
+            padding: 20px 16px;
+            overflow-y: auto;
+        }
+
+        .citizen-mode .right-panel {
+            background: rgba(255, 255, 255, 0.9);
+        }
+
+        /* Footer */
+        .footer {
+            grid-area: footer;
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(12px);
+            border-top: 1px solid rgba(42, 109, 244, 0.3);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 24px;
+            font-size: 0.9rem;
+        }
+
+        .emotional-message {
+            color: var(--gov-glow);
+            font-style: italic;
+            animation: glow 3s infinite;
+            font-weight: 500;
+        }
+
+        .team-credit {
+            color: #94a3b8;
+            font-size: 0.8rem;
+        }
+
+        /* Glass Card */
+        .glass-card {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border-radius: 24px;
+            padding: 20px;
+            border: 1px solid rgba(42, 109, 244, 0.3);
+            margin-bottom: 20px;
+            transition: all 0.3s;
+        }
+
+        .glass-card:hover {
+            border-color: var(--gov-glow);
+            box-shadow: 0 0 30px rgba(42, 109, 244, 0.2);
+            transform: translateY(-2px);
+        }
+
+        .citizen-mode .glass-card {
+            background: white;
+            border: 1px solid var(--citizen-accent);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.05);
+        }
+
+        /* Inputs */
+        .search-input {
+            width: 100%;
+            padding: 14px 18px;
+            background: rgba(255,255,255,0.1);
+            border: 1px solid var(--gov-accent);
+            border-radius: 40px;
+            color: white;
+            font-size: 0.95rem;
+            transition: all 0.3s;
+            margin-bottom: 12px;
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: var(--gov-glow);
+            box-shadow: 0 0 20px rgba(42, 109, 244, 0.3);
+        }
+
+        .citizen-mode .search-input {
+            background: white;
+            color: var(--dark);
+            border: 1px solid #cbd5e1;
+        }
+
+        .district-select {
+            width: 100%;
+            padding: 14px 18px;
+            background: rgba(255,255,255,0.1);
+            border: 1px solid var(--gov-accent);
+            border-radius: 40px;
+            color: white;
+            font-size: 0.95rem;
+            margin-bottom: 16px;
+        }
+
+        .citizen-mode .district-select {
+            background: white;
+            color: var(--dark);
+        }
+
+        /* Filter Tags */
+        .filter-tags {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .filter-tag {
+            padding: 8px 16px;
+            border-radius: 30px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: rgba(255,255,255,0.1);
+        }
+
+        .filter-tag:hover {
+            transform: translateY(-2px);
+        }
+
+        .filter-tag.danger { background: rgba(239, 68, 68, 0.2); color: #ef4444; border: 1px solid #ef4444; }
+        .filter-tag.warning { background: rgba(245, 158, 11, 0.2); color: #f59e0b; border: 1px solid #f59e0b; }
+        .filter-tag.success { background: rgba(16, 185, 129, 0.2); color: #10b981; border: 1px solid #10b981; }
+        .filter-tag.info { background: rgba(59, 130, 246, 0.2); color: #3b82f6; border: 1px solid #3b82f6; }
+
+        /* Checkbox Group */
+        .checkbox-group {
+            margin: 12px 0;
+        }
+
+        .checkbox-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin: 8px 0;
+            cursor: pointer;
+        }
+
+        .checkbox-item input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+            accent-color: var(--gov-accent);
+        }
+
+        /* Risk Score */
+        .risk-score-container {
+            text-align: center;
+            margin: 16px 0;
+        }
+
+        .risk-score {
+            font-size: 4.5rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--gov-glow), #a78bfa);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            line-height: 1;
+        }
+
+        .risk-label {
+            color: #94a3b8;
+            font-size: 0.9rem;
+            letter-spacing: 1px;
+        }
+
+        .confidence-meter {
+            width: 100%;
+            height: 10px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 16px 0 8px;
+        }
+
+        .confidence-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #10b981, #f59e0b, #ef4444);
+            border-radius: 10px;
+            transition: width 0.5s;
+            position: relative;
+        }
+
+        .confidence-fill::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+            animation: shimmer 2s infinite;
+        }
+
+        .confidence-labels {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.7rem;
+            color: #94a3b8;
+        }
+
+        /* Feature Importance */
+        .feature-item {
+            margin: 12px 0;
+        }
+
+        .feature-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 4px;
+            font-size: 0.85rem;
+        }
+
+        .feature-bar {
+            height: 6px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .feature-fill {
+            height: 100%;
+            border-radius: 10px;
+            transition: width 0.5s;
+        }
+
+        .feature-fill.danger { background: #ef4444; }
+        .feature-fill.warning { background: #f59e0b; }
+        .feature-fill.success { background: #10b981; }
+
+        /* Badges */
+        .badge-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin: 16px 0;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 6px 14px;
+            border-radius: 30px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            animation: fadeIn 0.5s;
+        }
+
+        .badge.danger { background: #ef4444; color: white; }
+        .badge.warning { background: #f59e0b; color: white; }
+        .badge.success { background: #10b981; color: white; }
+        .badge.info { background: #3b82f6; color: white; }
+
+        /* Timeline Strip */
+        .timeline-strip {
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 85%;
+            background: rgba(0,0,0,0.7);
+            backdrop-filter: blur(12px);
+            border-radius: 60px;
+            padding: 16px 24px;
+            display: flex;
+            gap: 25px;
+            overflow-x: auto;
+            border: 1px solid var(--gov-accent);
+            z-index: 1000;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+        }
+
+        .timeline-node {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-width: 90px;
+            position: relative;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .timeline-node:hover {
+            transform: translateY(-5px);
+        }
+
+        .timeline-node.suspicious .node-icon {
+            background: #ef4444;
+            animation: pulse 2s infinite;
+        }
+
+        .node-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: var(--gov-accent);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 8px;
+            border: 2px solid white;
+            font-size: 1.3rem;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+
+        .node-label {
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-align: center;
+        }
+
+        .node-year {
+            font-size: 0.7rem;
+            color: #94a3b8;
+        }
+
+        /* Demo Overlay */
+        .demo-overlay {
+            position: fixed;
+            top: 100px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: linear-gradient(135deg, #f59e0b, #dc2626);
+            color: white;
+            padding: 16px 40px;
+            border-radius: 60px;
+            font-weight: 700;
+            font-size: 1.2rem;
+            z-index: 10000;
+            box-shadow: 0 0 40px #f59e0b;
+            animation: pulse 2s infinite;
+            pointer-events: none;
+            letter-spacing: 1px;
+            white-space: nowrap;
+        }
+
+        /* Next Steps */
+        .step-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 16px;
+            margin: 8px 0;
+            transition: all 0.3s;
+        }
+
+        .step-item:hover {
+            background: rgba(42, 109, 244, 0.2);
+            transform: translateX(5px);
+        }
+
+        .step-number {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            background: var(--gov-accent);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+        }
+
+        /* Buttons */
+        .primary-btn {
+            width: 100%;
+            padding: 14px;
+            background: var(--gov-accent);
+            border: none;
+            border-radius: 40px;
+            color: white;
+            font-weight: 600;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin: 8px 0;
+        }
+
+        .primary-btn:hover {
+            background: var(--gov-glow);
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(42, 109, 244, 0.4);
+        }
+
+        .secondary-btn {
+            width: 100%;
+            padding: 14px;
+            background: transparent;
+            border: 1px solid var(--gov-accent);
+            border-radius: 40px;
+            color: white;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .secondary-btn:hover {
+            background: rgba(42, 109, 244, 0.1);
+            border-color: var(--gov-glow);
+        }
+
+        .citizen-mode .secondary-btn {
+            color: var(--dark);
+        }
+
+        /* Animations */
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+
+        @keyframes glow {
+            0% { text-shadow: 0 0 5px var(--gov-glow); }
+            50% { text-shadow: 0 0 20px var(--gov-glow); }
+            100% { text-shadow: 0 0 5px var(--gov-glow); }
+        }
+
+        @keyframes shimmer {
+            100% { transform: translateX(100%); }
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes slideIn {
+            from { transform: translateX(100%); }
+            to { transform: translateX(0); }
+        }
+
+        /* Notification */
+        .notification {
+            position: fixed;
+            top: 120px;
+            right: 30px;
+            background: var(--gov-accent);
+            color: white;
+            padding: 16px 24px;
+            border-radius: 16px;
+            z-index: 20000;
+            animation: slideIn 0.3s;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+            border-left: 4px solid white;
+        }
+
+        /* Responsive */
+        @media (max-width: 1400px) {
+            #app {
+                grid-template-columns: 280px 1fr 300px;
+            }
+        }
+
+        @media (max-width: 1200px) {
+            #app {
+                grid-template-columns: 260px 1fr 280px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Notification Container -->
+    <div id="notification" class="notification" style="display: none;"></div>
+
+    <!-- Demo Overlay -->
+    <div class="demo-overlay" id="demoOverlay" style="display: none;">
+        🎬 AUTO DEMO MODE — SHOWCASING LAND JUSTICE AI
+    </div>
+
+    <div id="app">
+        <!-- Header -->
+        <div class="header">
+            <div class="logo">
+                <span class="logo-icon">⚖️</span>
+                <span>LAND JUSTICE AI</span>
+            </div>
+            
+            <div class="mode-toggle">
+                <button class="mode-btn active" id="govModeBtn">🏛️ GOVT</button>
+                <button class="mode-btn" id="citizenModeBtn">👨‍👩‍👧 CITIZEN</button>
+            </div>
+
+            <div style="display: flex; gap: 15px; align-items: center;">
+                <button class="demo-btn" id="demoModeBtn">🎬 AUTO DEMO (PRESS D)</button>
+                <span class="privacy-badge">🔒 100% PRIVATE · OFFLINE</span>
+            </div>
+        </div>
+
+        <!-- Left Panel -->
+        <div class="sidebar">
+            <!-- Search Card -->
+            <div class="glass-card">
+                <h3 style="margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
+                    <span>🔍</span> SEARCH LAND
+                </h3>
+                
+                <input type="text" placeholder="Survey number (e.g., L2025-101)" class="search-input" id="searchInput" value="L2025-101">
+                
+                <select class="district-select" id="districtSelect">
+                    <option>All Districts</option>
+                    <option>North Ridge</option>
+                    <option>East Delta</option>
+                    <option>West Bend</option>
+                    <option>South Plains</option>
+                    <option>Central Valley</option>
+                </select>
+
+                <div class="filter-tags">
+                    <span class="filter-tag danger" onclick="filterRisk('high')">🔥 High Risk</span>
+                    <span class="filter-tag warning" onclick="filterRisk('medium')">⚠️ Medium</span>
+                    <span class="filter-tag success" onclick="filterRisk('low')">✅ Low</span>
+                    <span class="filter-tag info" onclick="toggleNetwork()">🕸️ Network</span>
+                </div>
+            </div>
+
+            <!-- Visualization Controls -->
+            <div class="glass-card">
+                <h3 style="margin-bottom: 16px;">🎛️ VISUALIZATION</h3>
+                
+                <div class="checkbox-group">
+                    <label class="checkbox-item">
+                        <input type="checkbox" checked id="showHeatmap"> Show Risk Heatmap
+                    </label>
+                    <label class="checkbox-item">
+                        <input type="checkbox" checked id="showNetwork"> Show Fraud Network
+                    </label>
+                    <label class="checkbox-item">
+                        <input type="checkbox" checked id="showExplanation"> Show AI Explanation
+                    </label>
+                    <label class="checkbox-item">
+                        <input type="checkbox" checked id="showTimeline"> Show Timeline
+                    </label>
+                </div>
+            </div>
+
+            <!-- Demo Controls -->
+            <div class="glass-card">
+                <h3 style="margin-bottom: 16px;">🎮 DEMO CONTROLS</h3>
+                
+                <button class="primary-btn" onclick="simulateFraud()">
+                    ⚡ Simulate Fraud Detection
+                </button>
+                
+                <button class="secondary-btn" onclick="resetScene()">
+                    ⟲ Reset Camera & Scene
+                </button>
+            </div>
+        </div>
+
+        <!-- Main 3D View -->
+        <div class="main-view">
+            <div id="canvas-container"></div>
+
+            <!-- Timeline Strip -->
+            <div class="timeline-strip" id="timelineStrip">
+                <!-- Generated via JS -->
+            </div>
+        </div>
+
+        <!-- Right Panel -->
+        <div class="right-panel">
+            <!-- Risk Score Card -->
+            <div class="glass-card" id="riskCard">
+                <h3 style="margin-bottom: 16px;">🔄 FRAUD RISK ASSESSMENT</h3>
+                
+                <div class="risk-score-container">
+                    <div class="risk-score" id="riskScore">87%</div>
+                    <div class="risk-label">CURRENT RISK LEVEL · HIGH</div>
+                </div>
+                
+                <div class="confidence-meter">
+                    <div class="confidence-fill" id="confidenceFill" style="width: 87%"></div>
+                </div>
+                
+                <div class="confidence-labels">
+                    <span>Low</span>
+                    <span>Medium</span>
+                    <span>High</span>
+                </div>
+
+                <div style="margin-top: 16px; font-size: 0.85rem; color: #94a3b8; text-align: center;">
+                    AI Confidence Score · Updated in real-time
+                </div>
+            </div>
+
+            <!-- AI Explanation Card -->
+            <div class="glass-card" id="aiCard">
+                <h3 style="margin-bottom: 16px;">🧠 EXPLAINABLE AI</h3>
+                
+                <div id="aiExplanation">
+                    <div class="feature-item">
+                        <div class="feature-header">
+                            <span>📊 Mutation Gap (3.2 years)</span>
+                            <span style="color:#ef4444;">+34%</span>
+                        </div>
+                        <div class="feature-bar">
+                            <div class="feature-fill danger" style="width:34%"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="feature-item">
+                        <div class="feature-header">
+                            <span>👥 Heir Count (5 heirs)</span>
+                            <span style="color:#f59e0b;">+28%</span>
+                        </div>
+                        <div class="feature-bar">
+                            <div class="feature-fill warning" style="width:28%"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="feature-item">
+                        <div class="feature-header">
+                            <span>💰 Undervaluation (47%)</span>
+                            <span style="color:#f59e0b;">+22%</span>
+                        </div>
+                        <div class="feature-bar">
+                            <div class="feature-fill warning" style="width:22%"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="feature-item">
+                        <div class="feature-header">
+                            <span>⚖️ Dispute History (2 cases)</span>
+                            <span style="color:#10b981;">+16%</span>
+                        </div>
+                        <div class="feature-bar">
+                            <div class="feature-fill success" style="width:16%"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="margin-top: 16px; padding: 12px; background: rgba(239, 68, 68, 0.1); border-radius: 16px; border-left: 4px solid #ef4444;">
+                    <span style="font-size: 0.9rem;">⚠️ Primary risk factor: Post-death mutation gap exceeding 3 years indicates possible heir exclusion.</span>
+                </div>
+            </div>
+
+            <!-- Fraud Badges Card -->
+            <div class="glass-card">
+                <h3 style="margin-bottom: 16px;">🚨 FRAUD INDICATORS</h3>
+                
+                <div class="badge-container" id="fraudBadges">
+                    <span class="badge danger" style="animation: pulse 2s infinite;">⚠️ Post-death transfer risk</span>
+                    <span class="badge warning">⚠️ Heir exclusion detected</span>
+                    <span class="badge warning">⚠️ Mutation gap >3 years</span>
+                    <span class="badge danger">⚠️ Undervaluation 47%</span>
+                    <span class="badge info">ℹ️ Joint property</span>
+                    <span class="badge warning">⚠️ Document mismatch</span>
+                </div>
+            </div>
+
+            <!-- Next Steps Card (Citizen Mode) -->
+            <div class="glass-card" id="nextStepsCard">
+                <h3 style="margin-bottom: 16px;">📋 NEXT STEPS FOR FAMILY</h3>
+                
+                <div class="step-item">
+                    <div class="step-number">1</div>
+                    <div>Collect succession certificate from court</div>
+                </div>
+                <div class="step-item">
+                    <div class="step-number">2</div>
+                    <div>Visit tehsildar office with original documents</div>
+                </div>
+                <div class="step-item">
+                    <div class="step-number">3</div>
+                    <div>File mutation correction application</div>
+                </div>
+                <div class="step-item">
+                    <div class="step-number">4</div>
+                    <div>Consult legal aid for heir exclusion</div>
+                </div>
+                
+                <div style="margin-top: 16px; font-size: 0.8rem; color: #94a3b8; text-align: center;">
+                    ⚖️ This is guidance, not legal advice
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            <span class="team-credit">🏆 TEAM INNOVATE · HACKATHON 2025</span>
+            <span class="emotional-message">"Built to protect families before land fraud destroys lives."</span>
+            <span>⚡ v3.0 · JUDGE WINNING EDITION</span>
+        </div>
+    </div>
+
+    <script type="module">
+        // --- THREE.JS SETUP ---
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+        const container = document.getElementById('canvas-container');
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x0a0f1e);
+
+        const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000);
+        camera.position.set(35, 20, 35);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+        renderer.setSize(container.clientWidth, container.clientHeight);
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        renderer.setPixelRatio(window.devicePixelRatio);
+        container.appendChild(renderer.domElement);
+
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.autoRotate = false;
+        controls.maxPolarAngle = Math.PI / 2.2;
+        controls.minDistance = 20;
+        controls.maxDistance = 60;
+        controls.target.set(0, 5, 0);
+
+        // Lighting
+        const ambientLight = new THREE.AmbientLight(0x404060);
+        scene.add(ambientLight);
+
+        const dirLight = new THREE.DirectionalLight(0xffffff, 1.2);
+        dirLight.position.set(10, 30, 10);
+        dirLight.castShadow = true;
+        dirLight.receiveShadow = true;
+        dirLight.shadow.mapSize.width = 2048;
+        dirLight.shadow.mapSize.height = 2048;
+        scene.add(dirLight);
+
+        const pointLight = new THREE.PointLight(0x4d8cff, 0.5, 40);
+        pointLight.position.set(0, 10, 0);
+        scene.add(pointLight);
+
+        // Add floating particles (stars)
+        const particlesGeo = new THREE.BufferGeometry();
+        const particlesCount = 2000;
+        const posArray = new Float32Array(particlesCount * 3);
+
+        for(let i = 0; i < particlesCount * 3; i += 3) {
+            posArray[i] = (Math.random() - 0.5) * 100;
+            posArray[i+1] = (Math.random() - 0.5) * 60;
+            posArray[i+2] = (Math.random() - 0.5) * 100;
+        }
+
+        particlesGeo.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+        const particlesMat = new THREE.PointsMaterial({
+            size: 0.15,
+            color: 0x4d8cff,
+            transparent: true,
+            opacity: 0.4,
+            blending: THREE.AdditiveBlending
+        });
+        const particles = new THREE.Points(particlesGeo, particlesMat);
+        scene.add(particles);
+
+        // Ground grid
+        const gridHelper = new THREE.GridHelper(50, 30, 0x4d8cff, 0x2a4a7a);
+        gridHelper.position.y = -0.1;
+        scene.add(gridHelper);
+
+        // Create land parcels with fraud pulse effect
+        const parcelGeom = new THREE.BoxGeometry(1.6, 1, 1.6);
+        const parcels = [];
+        const riskLevels = [];
+
+        for(let i = 0; i < 16; i++) {
+            for(let j = 0; j < 16; j++) {
+                // Generate risk with some pattern (cluster high risk in center)
+                const distFromCenter = Math.sqrt(Math.pow(i-7.5, 2) + Math.pow(j-7.5, 2));
+                let risk;
+                if(distFromCenter < 4) risk = 0.8 + Math.random() * 0.2;
+                else if(distFromCenter < 7) risk = 0.5 + Math.random() * 0.3;
+                else risk = 0.2 + Math.random() * 0.4;
+                
+                risk = Math.min(0.98, Math.max(0.1, risk));
+                riskLevels.push(risk);
+                
+                const height = risk * 4 + 0.8;
+                
+                const material = new THREE.MeshStandardMaterial({
+                    color: risk > 0.7 ? 0xef4444 : risk > 0.4 ? 0xf59e0b : 0x10b981,
+                    emissive: risk > 0.7 ? 0x330000 : 0x000000,
+                    emissiveIntensity: risk > 0.7 ? 0.5 : 0,
+                    roughness: 0.3,
+                    metalness: 0.1
+                });
+
+                const parcel = new THREE.Mesh(parcelGeom, material);
+                parcel.position.x = (i - 7.5) * 2.8;
+                parcel.position.y = height / 2;
+                parcel.position.z = (j - 7.5) * 2.8;
+                parcel.scale.y = height;
+                parcel.castShadow = true;
+                parcel.receiveShadow = true;
+                
+                parcel.userData = {
+                    risk: risk,
+                    survey: `L2025-${100 + i * 16 + j}`,
+                    district: ['North Ridge', 'East Delta', 'West Bend', 'South Plains'][Math.floor(Math.random() * 4)],
+                    fraudPulse: risk > 0.7
+                };
+
+                scene.add(parcel);
+                parcels.push(parcel);
+            }
+        }
+
+        // Add fraud network lines between high-risk parcels
+        const lineMaterial = new THREE.LineBasicMaterial({ color: 0xef4444 });
+        const highRiskParcels = parcels.filter(p => p.userData.risk > 0.7);
+        
+        for(let k = 0; k < Math.min(30, highRiskParcels.length * 2); k++) {
+            const p1 = highRiskParcels[Math.floor(Math.random() * highRiskParcels.length)];
+            const p2 = highRiskParcels[Math.floor(Math.random() * highRiskParcels.length)];
+            
+            if(p1 && p2 && p1 !== p2) {
+                const points = [
+                    new THREE.Vector3(p1.position.x, p1.position.y + 2, p1.position.z),
+                    new THREE.Vector3(p2.position.x, p2.position.y + 2, p2.position.z)
+                ];
+                
+                const geometry = new THREE.BufferGeometry().setFromPoints(points);
+                const line = new THREE.Line(geometry, lineMaterial);
+                scene.add(line);
+            }
+        }
+
+        // Animation loop
+        let time = 0;
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            time += 0.01;
+            
+            // Fraud pulse effect
+            parcels.forEach(parcel => {
+                if(parcel.userData.fraudPulse) {
+                    const intensity = 0.3 + Math.sin(time * 5) * 0.2;
+                    parcel.material.emissiveIntensity = intensity;
+                }
+            });
+
+            // Rotate particles
+            particles.rotation.y += 0.0002;
+            
+            controls.update();
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        // Resize handler
+        window.addEventListener('resize', () => {
+            camera.aspect = container.clientWidth / container.clientHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(container.clientWidth, container.clientHeight);
+        });
+
+        // Export for global functions
+        window.scene = scene;
+        window.camera = camera;
+        window.controls = controls;
+        window.parcels = parcels;
+    </script>
+
+    <script>
+        // --- GLOBAL STATE ---
+        let demoMode = false;
+        let demoInterval;
+        let currentRisk = 87;
+        let currentRole = 'gov';
+        let notificationTimeout;
+
+        // --- DOM ELEMENTS ---
+        const body = document.body;
+        const govBtn = document.getElementById('govModeBtn');
+        const citizenBtn = document.getElementById('citizenModeBtn');
+        const demoBtn = document.getElementById('demoModeBtn');
+        const demoOverlay = document.getElementById('demoOverlay');
+        const riskScoreEl = document.getElementById('riskScore');
+        const confidenceFill = document.getElementById('confidenceFill');
+        const notification = document.getElementById('notification');
+
+        // --- INITIALIZATION ---
+        window.addEventListener('load', () => {
+            generateTimeline();
+            showNotification('✨ Land Justice AI Ready · Press D for Auto Demo', 'success');
+            
+            // Keyboard shortcut for demo
+            document.addEventListener('keydown', (e) => {
+                if(e.key === 'd' || e.key === 'D') {
+                    toggleDemoMode();
+                }
+            });
+        });
+
+        // --- MODE TOGGLE ---
+        govBtn.addEventListener('click', () => {
+            body.classList.remove('citizen-mode');
+            govBtn.classList.add('active');
+            citizenBtn.classList.remove('active');
+            currentRole = 'gov';
+            
+            // Update UI for gov mode
+            document.getElementById('nextStepsCard').style.opacity = '1';
+            showNotification('🏛️ Government Mode Activated');
+        });
+
+        citizenBtn.addEventListener('click', () => {
+            body.classList.add('citizen-mode');
+            citizenBtn.classList.add('active');
+            govBtn.classList.remove('active');
+            currentRole = 'citizen';
+            
+            // Update UI for citizen mode
+            showNotification('👨‍👩‍👧 Citizen Mode · Your data stays private');
+        });
+
+        // --- AUTO DEMO MODE ---
+        function toggleDemoMode() {
+            demoMode = !demoMode;
+            
+            if(demoMode) {
+                demoOverlay.style.display = 'block';
+                window.controls.autoRotate = true;
+                
+                // Auto cycle through features
+                let step = 0;
+                demoInterval = setInterval(() => {
+                    step++;
+                    
+                    // Cycle risk score
+                    if(step % 4 === 0) {
+                        const newRisk = 65 + Math.random() * 30;
+                        updateRiskScore(newRisk);
+                        
+                        // Update explanation based on risk
+                        updateAIExplanation(newRisk);
+                    }
+                    
+                    // Zoom to different areas
+                    if(step % 8 === 0) {
+                        window.camera.position.x = 20 + Math.random() * 30;
+                        window.camera.position.z = 20 + Math.random() * 30;
+                        window.camera.position.y = 15 + Math.random() * 10;
+                        window.controls.target.set(0, 5, 0);
+                    }
+                    
+                    // Highlight random high-risk parcel
+                    if(window.parcels && step % 3 === 0) {
+                        const highRisk = window.parcels.filter(p => p.userData.risk > 0.7);
+                        if(highRisk.length > 0) {
+                            const randomParcel = highRisk[Math.floor(Math.random() * highRisk.length)];
+                            window.controls.target.set(randomParcel.position.x, randomParcel.position.y, randomParcel.position.z);
+                        }
+                    }
+                    
+                }, 3000);
+                
+                showNotification('🎬 Auto Demo Started · Sit back and watch', 'info');
+            } else {
+                demoOverlay.style.display = 'none';
+                window.controls.autoRotate = false;
+                clearInterval(demoInterval);
+                showNotification('⏸️ Demo Paused');
+            }
+        }
+
+        // --- UPDATE RISK SCORE ---
+        function updateRiskScore(score) {
+            score = Math.min(99, Math.max(1, Math.round(score)));
+            currentRisk = score;
+            
+            riskScoreEl.textContent = score + '%';
+            confidenceFill.style.width = score + '%';
+            
+            // Update risk label
+            const riskLabel = document.querySelector('.risk-label');
+            if(score > 70) {
+                riskLabel.textContent = 'CURRENT RISK LEVEL · HIGH';
+                riskLabel.style.color = '#ef4444';
+            } else if(score > 40) {
+                riskLabel.textContent = 'CURRENT RISK LEVEL · MEDIUM';
+                riskLabel.style.color = '#f59e0b';
+            } else {
+                riskLabel.textContent = 'CURRENT RISK LEVEL · LOW';
+                riskLabel.style.color = '#10b981';
+            }
+        }
+
+        // --- UPDATE AI EXPLANATION ---
+        function updateAIExplanation(risk) {
+            const aiDiv = document.getElementById('aiExplanation');
+            
+            // Adjust feature importances based on risk
+            const mutationImpact = Math.min(45, Math.round(20 + risk * 0.3));
+            const heirImpact = Math.min(40, Math.round(15 + risk * 0.25));
+            const undervalueImpact = Math.min(35, Math.round(10 + risk * 0.2));
+            const disputeImpact = Math.min(25, Math.round(5 + risk * 0.15));
+            
+            aiDiv.innerHTML = `
+                <div class="feature-item">
+                    <div class="feature-header">
+                        <span>📊 Mutation Gap (3.2 years)</span>
+                        <span style="color:#ef4444;">+${mutationImpact}%</span>
+                    </div>
+                    <div class="feature-bar">
+                        <div class="feature-fill danger" style="width:${mutationImpact}%"></div>
+                    </div>
+                </div>
+                
+                <div class="feature-item">
+                    <div class="feature-header">
+                        <span>👥 Heir Count (5 heirs)</span>
+                        <span style="color:#f59e0b;">+${heirImpact}%</span>
+                    </div>
+                    <div class="feature-bar">
+                        <div class="feature-fill warning" style="width:${heirImpact}%"></div>
+                    </div>
+                </div>
+                
+                <div class="feature-item">
+                    <div class="feature-header">
+                        <span>💰 Undervaluation (47%)</span>
+                        <span style="color:#f59e0b;">+${undervalueImpact}%</span>
+                    </div>
+                    <div class="feature-bar">
+                        <div class="feature-fill warning" style="width:${undervalueImpact}%"></div>
+                    </div>
+                </div>
+                
+                <div class="feature-item">
+                    <div class="feature-header">
+                        <span>⚖️ Dispute History (2 cases)</span>
+                        <span style="color:#10b981;">+${disputeImpact}%</span>
+                    </div>
+                    <div class="feature-bar">
+                        <div class="feature-fill success" style="width:${disputeImpact}%"></div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // --- GENERATE TIMELINE ---
+        function generateTimeline() {
+            const strip = document.getElementById('timelineStrip');
+            const events = [
+                { year: '2010', event: 'Original Owner', icon: '👤', suspicious: false },
+                { year: '2013', event: 'First Transfer', icon: '📜', suspicious: false },
+                { year: '2015', event: 'Owner Death', icon: '⚰', suspicious: true },
+                { year: '2016', event: 'Mutation', icon: '📝', suspicious: true },
+                { year: '2019', event: 'Dispute Filed', icon: '⚖️', suspicious: true },
+                { year: '2021', event: 'Court Case', icon: '🏛️', suspicious: true },
+                { year: '2023', event: 'Current', icon: '📍', suspicious: false }
+            ];
+            
+            strip.innerHTML = events.map(e => `
+                <div class="timeline-node ${e.suspicious ? 'suspicious' : ''}" onclick="showNotification('${e.event} · ${e.year}')">
+                    <div class="node-icon">${e.icon}</div>
+                    <div class="node-label">${e.event}</div>
+                    <div class="node-year">${e.year}</div>
+                </div>
+            `).join('');
+        }
+
+        // --- SIMULATE FRAUD DETECTION ---
+        function simulateFraud() {
+            // Increase risk score
+            const newRisk = Math.min(98, currentRisk + 15);
+            updateRiskScore(newRisk);
+            
+            // Update explanation
+            updateAIExplanation(newRisk);
+            
+            // Add fraud pulse to random parcels
+            if(window.parcels) {
+                window.parcels.forEach(parcel => {
+                    if(Math.random() > 0.8) {
+                        parcel.userData.fraudPulse = true;
+                        parcel.material.emissive.setHex(0x330000);
+                    }
+                });
+            }
+            
+            showNotification('⚠️ Fraud pattern detected! Risk score updated', 'warning');
+            
+            // Add new badge
+            const badgeContainer = document.getElementById('fraudBadges');
+            const newBadge = document.createElement('span');
+            newBadge.className = 'badge danger';
+            newBadge.style.animation = 'pulse 2s infinite';
+            newBadge.textContent = '⚠️ URGENT: Fraud alert';
+            badgeContainer.prepend(newBadge);
+        }
+
+        // --- RESET SCENE ---
+        function resetScene() {
+            // Reset camera
+            window.camera.position.set(35, 20, 35);
+            window.controls.target.set(0, 5, 0);
+            window.controls.update();
+            
+            // Reset risk score
+            updateRiskScore(87);
+            
+            // Reset explanation
+            updateAIExplanation(87);
+            
+            // Reset parcel colors
+            if(window.parcels) {
+                window.parcels.forEach(parcel => {
+                    const risk = parcel.userData.risk;
+                    parcel.material.color.setHex(risk > 0.7 ? 0xef4444 : risk > 0.4 ? 0xf59e0b : 0x10b981);
+                    parcel.userData.fraudPulse = risk > 0.7;
+                });
+            }
+            
+            showNotification('🔄 Scene reset to default');
+        }
+
+        // --- FILTER FUNCTIONS ---
+        function filterRisk(level) {
+            let message = '';
+            if(level === 'high') message = '🔥 Showing high risk lands only';
+            else if(level === 'medium') message = '⚠️ Showing medium risk lands';
+            else message = '✅ Showing low risk lands';
+            
+            showNotification(message);
+            
+            // Visual feedback - highlight parcels of that risk level
+            if(window.parcels) {
+                window.parcels.forEach(parcel => {
+                    const risk = parcel.userData.risk;
+                    if(level === 'high' && risk > 0.7) {
+                        parcel.material.emissiveIntensity = 0.5;
+                    } else if(level === 'medium' && risk > 0.4 && risk <= 0.7) {
+                        parcel.material.emissiveIntensity = 0.3;
+                    } else if(level === 'low' && risk <= 0.4) {
+                        parcel.material.emissiveIntensity = 0.2;
+                    } else {
+                        parcel.material.emissiveIntensity = 0;
+                    }
+                });
+            }
+        }
+
+        function toggleNetwork() {
+            showNotification('🕸️ Fraud network visualization toggled');
+        }
+
+        // --- SHOW NOTIFICATION ---
+        function showNotification(message, type = 'info') {
+            notification.style.display = 'block';
+            notification.textContent = message;
+            
+            // Set color based on type
+            if(type === 'success') notification.style.background = '#10b981';
+            else if(type === 'warning') notification.style.background = '#f59e0b';
+            else if(type === 'danger') notification.style.background = '#ef4444';
+            else notification.style.background = '#2a6df4';
+            
+            // Clear previous timeout
+            if(notificationTimeout) clearTimeout(notificationTimeout);
+            
+            // Auto hide after 3 seconds
+            notificationTimeout = setTimeout(() => {
+                notification.style.display = 'none';
+            }, 3000);
+        }
+
+        // --- EXPORT GLOBALLY ---
+        window.filterRisk = filterRisk;
+        window.toggleNetwork = toggleNetwork;
+        window.simulateFraud = simulateFraud;
+        window.resetScene = resetScene;
+        window.toggleDemoMode = toggleDemoMode;
+        window.updateRiskScore = updateRiskScore;
+        window.showNotification = showNotification;
+    </script>
+</body>
+</html>
